@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Flashcards</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      :root {
+        --bg: #0f172a;
+        --bg-elevated: #020617;
+        --card: #1e293b;
+        --border: #334155;
+        --accent: #38bdf8;
+        --accent-soft: rgba(56, 189, 248, 0.15);
+        --text: #e5e7eb;
+        --muted: #94a3b8;
+        --danger: #f97373;
+        --green: #4ade80;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top, #1e293b 0, #0f172a 50%, #020617 100%);
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 24px;
+      }
+
+      .app-shell {
+        width: 100%;
+        max-width: 900px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .title-block {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .logo {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        background: linear-gradient(145deg, #38bdf8, #0ea5e9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: #fff;
+        box-shadow: 0 4px 14px rgba(56, 189, 248, 0.4);
+      }
+
+      h1 {
+        font-size: 22px;
+        margin: 0;
+        letter-spacing: 0.02em;
+      }
+
+      .subtitle {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      .input-section {
+        background: rgba(30, 41, 59, 0.6);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 20px;
+      }
+
+      .field {
+        margin-bottom: 14px;
+      }
+
+      .field:last-of-type { margin-bottom: 0; }
+
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+
+      input[type="text"],
+      textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--bg-elevated);
+        color: var(--text);
+        font-family: inherit;
+        font-size: 14px;
+      }
+
+      input:focus,
+      textarea:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px var(--accent-soft);
+      }
+
+      textarea {
+        min-height: 80px;
+        resize: vertical;
+      }
+
+      .file-hint {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 6px;
+      }
+
+      input[type="file"] {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+
+      .btn-primary {
+        border: none;
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-size: 14px;
+        font-weight: 500;
+        color: #0f172a;
+        background: linear-gradient(145deg, #38bdf8, #0ea5e9);
+        cursor: pointer;
+        margin-top: 12px;
+        transition: opacity 0.15s, transform 0.08s;
+      }
+
+      .btn-primary:hover {
+        opacity: 0.95;
+        transform: translateY(-1px);
+      }
+
+      .btn-primary:active { transform: translateY(0); }
+
+      .btn-primary:disabled {
+        opacity: 0.7;
+        cursor: wait;
+      }
+
+      .status {
+        font-size: 12px;
+        color: var(--muted);
+        min-height: 20px;
+      }
+
+      .status.error { color: var(--danger); }
+
+      .cards-section {
+        display: none;
+      }
+
+      .cards-section.visible {
+        display: block;
+      }
+
+      .cards-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .cards-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--muted);
+      }
+
+      .nav-buttons {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .btn-nav {
+        border: 1px solid var(--border);
+        background: var(--bg-elevated);
+        color: var(--text);
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: background 0.12s, border-color 0.12s;
+      }
+
+      .btn-nav:hover {
+        background: var(--card);
+        border-color: var(--accent);
+      }
+
+      .btn-nav:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .card-counter {
+        font-size: 12px;
+        color: var(--muted);
+        min-width: 80px;
+        text-align: center;
+      }
+
+      .card-container {
+        perspective: 1000px;
+        margin-bottom: 20px;
+      }
+
+      .flashcard {
+        position: relative;
+        width: 100%;
+        min-height: 180px;
+        cursor: pointer;
+        transform-style: preserve-3d;
+        transition: transform 0.4s ease;
+      }
+
+      .flashcard.flipped {
+        transform: rotateY(180deg);
+      }
+
+      .flashcard-face {
+        position: absolute;
+        width: 100%;
+        min-height: 180px;
+        backface-visibility: hidden;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        padding: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        font-size: 16px;
+        line-height: 1.6;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      .flashcard-face.back {
+        transform: rotateY(180deg);
+        background: linear-gradient(145deg, #1e3a5f 0%, #1e293b 100%);
+        border-color: rgba(56, 189, 248, 0.3);
+        color: #bae6fd;
+      }
+
+      .flashcard-face .content {
+        max-width: 100%;
+        word-break: break-word;
+      }
+
+      .empty-state {
+        text-align: center;
+        font-size: 14px;
+        color: var(--muted);
+        padding: 40px 20px;
+        line-height: 1.6;
+      }
+
+      .empty-state strong { color: var(--text); }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="header">
+        <div class="title-block">
+          <div class="logo">&#128451;</div>
+          <div>
+            <h1>Flashcards</h1>
+            <div class="subtitle">Topic or notes → AI-generated cards</div>
+          </div>
+        </div>
+      </header>
+
+      <section class="input-section">
+        <div class="field">
+          <label for="topic">Topic</label>
+          <input type="text" id="topic" placeholder="e.g. Photosynthesis, World War II, Python decorators" />
+        </div>
+        <div class="field">
+          <label for="sources-text">Paste notes (optional)</label>
+          <textarea id="sources-text" placeholder="Paste your notes or text here. We'll generate flashcards from it."></textarea>
+        </div>
+        <div class="field">
+          <label for="source-files">Upload PDF or DOCX (optional)</label>
+          <input type="file" id="source-files" accept=".pdf,.docx" multiple />
+          <div class="file-hint">Max 10MB per file. Use with topic and/or pasted text.</div>
+        </div>
+        <button type="button" class="btn-primary" id="generate-btn">Generate flashcards</button>
+        <div id="status" class="status"></div>
+      </section>
+
+      <section id="cards-section" class="cards-section">
+        <div class="cards-header">
+          <span class="cards-title">Your cards</span>
+          <div class="nav-buttons">
+            <button type="button" class="btn-nav" id="prev-btn">Previous</button>
+            <span class="card-counter" id="card-counter">0 / 0</span>
+            <button type="button" class="btn-nav" id="next-btn">Next</button>
+          </div>
+        </div>
+        <div class="card-container">
+          <div class="flashcard" id="flashcard">
+            <div class="flashcard-face front">
+              <div class="content" id="card-front"></div>
+            </div>
+            <div class="flashcard-face back">
+              <div class="content" id="card-back"></div>
+            </div>
+          </div>
+        </div>
+        <p class="empty-state" id="cards-empty">Click the card to flip. Use Previous/Next to step through.</p>
+      </section>
+    </div>
+
+    <script src="./main.js"></script>
+  </body>
+</html>
