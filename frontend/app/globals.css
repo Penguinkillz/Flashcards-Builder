@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  /* 3D flip card utilities — used by FlashcardViewer */
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+
+  .rotate-y-180 {
+    transform: rotateY(180deg);
+  }
+
+  /* backface-hidden is a Tailwind v3 built-in; defined here as vendor fallback */
+  .backface-hidden {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+}

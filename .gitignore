@@ -1,3 +1,4 @@
+# Python
 .env
 .venv
 venv
@@ -10,3 +11,8 @@ __pycache__
 dist
 build
 .DS_Store
+
+# Next.js — node_modules and .next are NOT committed; frontend/out/ IS committed
+frontend/.next/
+frontend/node_modules/
+frontend/.env.local

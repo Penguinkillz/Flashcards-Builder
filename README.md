@@ -13,26 +13,51 @@ Part of a suite of AI micro-tools; same “one input → LLM → structured outp
 
 ## Local setup
 
-1. **Clone or copy** this repo to `C:\flashcards` (or your chosen path).
+### Backend (FastAPI)
 
-2. **Create a virtualenv and install dependencies:**
+1. **Create a virtualenv and install dependencies:**
    ```bash
    cd C:\flashcards
    python -m venv .venv
-   .venv\Scripts\activate
+   .venv\Scripts\activate       # Windows PowerShell
    pip install -r requirements.txt
    ```
 
-3. **Configure env:** Copy `.env.example` to `.env` and set at least:
+2. **Configure env:** Copy `.env.example` to `.env` and set at least:
    ```bash
    PLATFORM_GROQ_API_KEY=your_groq_api_key_here
    ```
 
-4. **Run:**
+3. **Run the backend:**
    ```bash
    uvicorn main:app --reload --port 8000
    ```
-   Open http://localhost:8000
+
+### Frontend (Next.js dev server)
+
+Open a second terminal:
+
+```bash
+cd C:\flashcards\frontend
+copy .env.example .env.local   # sets NEXT_PUBLIC_API_URL=http://localhost:8000
+npm install
+npm run dev                    # http://localhost:3000
+```
+
+The dev server proxies API calls to `localhost:8000` via `NEXT_PUBLIC_API_URL`.
+
+### After any frontend change — rebuild the static export for production
+
+```bash
+cd C:\flashcards\frontend
+npm run build                  # generates frontend/out/
+cd ..
+git add -A
+git commit -m "update frontend"
+git push
+```
+
+Railway serves `frontend/out/` via FastAPI's StaticFiles — no Node.js runtime needed in production.
 
 ## GitHub & deploy
 

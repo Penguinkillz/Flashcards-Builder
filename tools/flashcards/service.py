@@ -40,6 +40,31 @@ Rules:
 - cards must be a non-empty array.""".strip()
 
 
+_VALID_ESCAPES = set('"\\\\/bfnrt')
+
+
+def _fix_json_escapes(content: str) -> str:
+    """Walk the string and replace invalid JSON escape sequences with the literal character."""
+    result: list[str] = []
+    i = 0
+    while i < len(content):
+        ch = content[i]
+        if ch == "\\" and i + 1 < len(content):
+            nxt = content[i + 1]
+            if nxt in _VALID_ESCAPES or nxt == "u":
+                result.append(ch)
+                result.append(nxt)
+                i += 2
+            else:
+                # Invalid escape — emit the literal character after the backslash
+                result.append(nxt)
+                i += 2
+        else:
+            result.append(ch)
+            i += 1
+    return "".join(result)
+
+
 def _sanitize(content: str) -> str:
     content = content.lstrip("\ufeff")
     content = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", content)
@@ -48,6 +73,7 @@ def _sanitize(content: str) -> str:
 
 def _parse_response(content: str) -> dict:
     content = _sanitize(content)
+    content = _fix_json_escapes(content)
     try:
         return json.loads(content)
     except json.JSONDecodeError:
@@ -75,6 +101,7 @@ def generate(payload: GenerateRequest) -> GenerateResponse:
                 {"role": "user", "content": prompt},
             ],
             temperature=0.5,
+            response_format={"type": "json_object"},
         )
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"LLM API error: {exc}") from exc
