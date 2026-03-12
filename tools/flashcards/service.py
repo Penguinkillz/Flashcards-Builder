@@ -8,17 +8,28 @@ from core.llm import get_llm_client
 from tools.flashcards.models import FlashcardItem, GenerateRequest, GenerateResponse
 
 
+# ~4 chars per token; keep source well under Groq free-tier's 12 000 TPM limit.
+# 10 000 chars ≈ 2 500 tokens, leaving ample room for the prompt template + output.
+_MAX_SOURCE_CHARS = 10_000
+
+
 def _build_prompt(payload: GenerateRequest) -> str:
     topic = (payload.topic or "").strip()
     sources = (payload.sources_text or "").strip()
     if not topic and not sources:
         raise ValueError("Provide a topic and/or source text.")
 
+    truncated = False
+    if len(sources) > _MAX_SOURCE_CHARS:
+        sources = sources[:_MAX_SOURCE_CHARS]
+        truncated = True
+
     parts = []
     if topic:
         parts.append(f"Topic: {topic}")
     if sources:
-        parts.append(f"Source material (use this to create accurate flashcards):\n{sources}")
+        note = " (truncated to fit model context limit)" if truncated else ""
+        parts.append(f"Source material{note} (use this to create accurate flashcards):\n{sources}")
 
     content = "\n\n".join(parts)
     return f"""You are an expert study assistant. Create flashcards from the following.
