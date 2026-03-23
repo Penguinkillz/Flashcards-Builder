@@ -1,0 +1,3 @@
+# Local monorepo: sibling folder C:\orchestrator
+-r requirements.txt
+-e ../orchestrator

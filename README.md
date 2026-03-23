@@ -15,11 +15,19 @@ Part of a suite of AI micro-tools; same “one input → LLM → structured outp
 
 ### Backend (FastAPI)
 
-1. **Create a virtualenv and install dependencies:**
+1. **Install the private `orchestrator` package, then app deps:**
    ```bash
    cd C:\flashcards
    python -m venv .venv
    .venv\Scripts\activate       # Windows PowerShell
+   ```
+   **Local monorepo** (sibling folder `C:\orchestrator`):
+   ```bash
+   pip install -r requirements-dev.txt
+   ```
+   **Or** install orchestrator first, then base requirements:
+   ```bash
+   pip install -e ..\orchestrator
    pip install -r requirements.txt
    ```
 
@@ -75,9 +83,18 @@ Railway serves `frontend/out/` via FastAPI's StaticFiles — no Node.js runtime 
 
 ### Deploy on Railway
 
-1. Go to [railway.app](https://railway.app) and sign in (e.g. with GitHub).
-2. **New Project** → **Deploy from GitHub repo** → select your `flashcards` repo.
-3. Railway will detect the **Procfile** and use it as the start command. No build step needed.
+The backend depends on the private **`orchestrator`** Python package (not in this repo by default).
+
+1. **Build:** In Railway → your service → **Settings** → set **Custom Build Command**, e.g.:
+   ```bash
+   pip install git+https://github.com/YOUR_ORG/orchestrator.git@main && pip install -r requirements.txt
+   ```
+   Use a deploy token or SSH as needed for a **private** orchestrator repo.  
+   (`requirements.txt` does not include `-e ../orchestrator` so the clone-only repo builds cleanly.)
+
+2. Go to [railway.app](https://railway.app) and sign in (e.g. with GitHub).
+3. **New Project** → **Deploy from GitHub repo** → select your `flashcards` repo.
+4. Railway will use **Procfile** / `railway.json` for start. The repo’s default `railway.json` only runs `pip install -r requirements.txt`; **you must** either set the **Custom Build Command** as above or change `build.buildCommand` in `railway.json` to prepend `pip install git+...orchestrator...` so `import orchestrator` works at runtime.
 4. **Variables** (in the service or project): add at least:
    - `PLATFORM_GROQ_API_KEY` = your Groq API key  
    Optionally: `PLATFORM_GROQ_API_KEY_2`, `PLATFORM_GROQ_API_KEY_3`, `PLATFORM_OPENAI_API_KEY`.

@@ -1,156 +1,48 @@
-"""Flashcard generation — build prompt, call LLM, parse JSON."""
+"""Flashcard generation via shared orchestrator package."""
+from __future__ import annotations
+
 import json
-import re
 
 from fastapi import HTTPException
 
-from core.llm import get_llm_client
-from tools.flashcards.models import FlashcardItem, GenerateRequest, GenerateResponse
-
-
-# ~4 chars per token; keep source well under Groq free-tier's 12 000 TPM limit.
-# 10 000 chars ≈ 2 500 tokens, leaving ample room for the prompt template + output.
-_MAX_SOURCE_CHARS = 10_000
-
-
-def _build_prompt(payload: GenerateRequest) -> str:
-    topic = (payload.topic or "").strip()
-    sources = (payload.sources_text or "").strip()
-    if not topic and not sources:
-        raise ValueError("Provide a topic and/or source text.")
-
-    truncated = False
-    if len(sources) > _MAX_SOURCE_CHARS:
-        sources = sources[:_MAX_SOURCE_CHARS]
-        truncated = True
-
-    parts = []
-    if topic:
-        parts.append(f"Topic: {topic}")
-    if sources:
-        note = " (truncated to fit model context limit)" if truncated else ""
-        parts.append(f"Source material{note} (use this to create accurate flashcards):\n{sources}")
-
-    content = "\n\n".join(parts)
-    return f"""You are an expert study assistant. Create flashcards from the following.
-
-{content}
-
-Return ONLY valid JSON in exactly this structure (no markdown, no code fences, no control characters):
-{{
-  "cards": [
-    {{ "front": "term or question", "back": "definition or answer" }},
-    {{ "front": "...", "back": "..." }}
-  ]
-}}
-
-Rules:
-- Generate between 5 and 20 cards. Prefer quality over quantity.
-- Each card must have "front" and "back" only. front = term or question; back = definition or answer.
-- All string values must be valid JSON — escape special characters. No newlines or tabs inside values; use space instead.
-- cards must be a non-empty array.""".strip()
-
-
-_VALID_ESCAPES = set('"\\\\/bfnrt')
-
-
-def _fix_json_escapes(content: str) -> str:
-    """Walk the string and replace invalid JSON escape sequences with the literal character."""
-    result: list[str] = []
-    i = 0
-    while i < len(content):
-        ch = content[i]
-        if ch == "\\" and i + 1 < len(content):
-            nxt = content[i + 1]
-            if nxt in _VALID_ESCAPES or nxt == "u":
-                result.append(ch)
-                result.append(nxt)
-                i += 2
-            else:
-                # Invalid escape — emit the literal character after the backslash
-                result.append(nxt)
-                i += 2
-        else:
-            result.append(ch)
-            i += 1
-    return "".join(result)
-
-
-def _sanitize(content: str) -> str:
-    content = content.lstrip("\ufeff")
-    content = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", content)
-    return content
-
-
-def _parse_response(content: str) -> dict:
-    content = _sanitize(content)
-    content = _fix_json_escapes(content)
-    try:
-        return json.loads(content)
-    except json.JSONDecodeError:
-        start, end = content.find("{"), content.rfind("}")
-        if start != -1 and end > start:
-            try:
-                return json.loads(content[start : end + 1])
-            except json.JSONDecodeError:
-                pass
-        raise
+from tools.flashcards.flashcards_adapter import FLASHCARDS_ADAPTER, request_to_task
+from tools.flashcards.models import GenerateRequest, GenerateResponse
+from tools.flashcards.orchestrator_bootstrap import get_orchestrator_runtime
 
 
 def generate(payload: GenerateRequest) -> GenerateResponse:
-    client, model = get_llm_client()
-    prompt = _build_prompt(payload)
+    try:
+        rt = get_orchestrator_runtime()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     try:
-        completion = client.chat.completions.create(
-            model=model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a study assistant. Return clean JSON only — no markdown, no code fences.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.5,
-            response_format={"type": "json_object"},
+        task = request_to_task(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        plan = rt.planner.plan(task, rt.key_manager)
+        result = rt.executor.execute(
+            plan,
+            task,
+            FLASHCARDS_ADAPTER,
+            task_id=task.id,
+            response_json=True,
         )
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"LLM API error: {exc}") from exc
-
-    raw = completion.choices[0].message.content or ""
-
-    try:
-        data = _parse_response(raw)
     except json.JSONDecodeError as exc:
         raise HTTPException(
             status_code=502, detail=f"Failed to parse model output: {exc}"
         ) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"LLM API error: {exc}") from exc
 
-    if "cards" not in data or not isinstance(data["cards"], list):
+    if not isinstance(result, list):
         raise HTTPException(
             status_code=502,
-            detail="Model response missing or invalid 'cards' array.",
+            detail="Unexpected orchestrator output (expected list of cards).",
         )
 
-    cards: list[FlashcardItem] = []
-    for i, item in enumerate(data["cards"]):
-        if not isinstance(item, dict):
-            continue
-        front = item.get("front")
-        back = item.get("back")
-        if front is None or back is None:
-            continue
-        cards.append(
-            FlashcardItem(
-                front=str(front).strip() or f"Card {i + 1}",
-                back=str(back).strip() or "",
-            )
-        )
-
-    if not cards:
-        raise HTTPException(
-            status_code=502,
-            detail="Model did not return any valid cards (front/back).",
-        )
-
-    return GenerateResponse(cards=cards)
+    return GenerateResponse(cards=result)

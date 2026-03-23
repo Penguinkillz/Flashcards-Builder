@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     groq_api_key_2: Optional[str] = None
     groq_api_key_3: Optional[str] = None
     openai_api_key: Optional[str] = None
+    gemini_api_key: Optional[str] = None
+    openrouter_api_key: Optional[str] = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
