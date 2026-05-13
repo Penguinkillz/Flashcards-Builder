@@ -20,7 +20,7 @@ jobs:
     # Python backend; package.json lives under frontend/ only, so JS Autobuild at repo root fails.
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
