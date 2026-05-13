@@ -17,11 +17,7 @@ jobs:
       contents: read
       security-events: write
 
-    strategy:
-      fail-fast: false
-      matrix:
-        language: ["javascript-typescript", "python"]
-
+    # Python backend; package.json lives under frontend/ only, so JS Autobuild at repo root fails.
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,7 +25,7 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
-          languages: ${{ matrix.language }}
+          languages: python
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@v3
